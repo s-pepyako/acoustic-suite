@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {moveRectangle,resizeRectangle}from '../geometry.js';import {RenderController}from '../render-controller.js';import {defaults,simulate,validate}from '../model.js';
+test('moving and resizing keep the rectangle in the room with a fixed opposite corner',()=>{
+ const o={x:1,y:1,w:2,h:2};assert.deepEqual(moveRectangle(o,-10,20,5,5),{x:0,y:3,w:2,h:2});
+ const r=resizeRectangle(o,'ne',20,-20,5,5);assert.equal(r.x,1);assert.equal(r.y,1);assert.equal(r.w,4);assert.ok(Math.abs(r.h-.05)<1e-8);
+ const sw=resizeRectangle(o,'sw',-20,-20,5,5);assert.deepEqual(sw,{x:0,y:0,w:3,h:3});
+ for(const corner of ['ne','nw','se','sw']){const p=defaults();p.obstacles=[resizeRectangle(o,corner,1.37,-1.28,p.width,p.depth)];validate(p);}
+});
+test('preview resolution leaves the saved project detail unchanged',()=>{const p=defaults();p.q=2;const r=simulate(p,()=>{},32);assert.equal(r.nx,32);assert.equal(p.detail,96);assert.ok(r.amplitude.every(Number.isFinite));});
+const wait=()=>new Promise(r=>setTimeout(r,10));
+function fixture(){const workers=[],results=[];const c=new RenderController({createWorker:()=>{const w={terminate(){this.terminated=true;},postMessage(data){this.data=data;}};workers.push(w);return w;},onResult:(...r)=>results.push(r),onStatus:()=>{},onBusy:()=>{},onError:()=>{},previewDelay:0,refineDelay:0});return {c,workers,results};}
+test('live preview refines and coalesces edits without accepting stale results',async()=>{const {c,workers,results}=fixture();try{const p=defaults();c.setLive(true,p);await wait();assert.equal(workers[0].data.detail,32);p.frequency=90;c.change(p);workers[0].onmessage({data:{type:'result',result:{}}});assert.equal(results.length,0);await wait();assert.equal(workers[1].data.project.frequency,90);workers[1].onmessage({data:{type:'result',result:{}}});assert.equal(results.length,1);await wait();assert.equal(workers[2].data.detail,96);workers[2].onmessage({data:{type:'result',result:{}}});assert.equal(results[1][1],'detail');}finally{c.stop();}});
+test('turning live off cancels pending refinement and ignores late worker messages',async()=>{const {c,workers,results}=fixture();c.setLive(true,defaults());await wait();c.setLive(false,defaults());assert.ok(workers[0].terminated);workers[0].onmessage({data:{type:'result',result:{}}});assert.equal(results.length,0);await wait();assert.equal(workers.length,1);c.stop();});

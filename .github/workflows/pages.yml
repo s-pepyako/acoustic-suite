@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: 24
       - run: node --test tests/*.test.mjs
-      - run: mkdir -p dist && cp index.html style.css app.js model.js worker.js dist/
+      - run: mkdir -p dist && cp index.html style.css app.js model.js worker.js geometry.js render-controller.js dist/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

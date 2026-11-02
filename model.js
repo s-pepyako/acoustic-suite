@@ -13,8 +13,8 @@ export function filterResponse(f,cutoff,order,type){
  for(let k=0;k<order/2;k++){const q=1/(2*Math.cos((2*k+1)*Math.PI/(2*order)));h=mul(h,divide(type==='hp'?[-r*r,0]:[1,0],[1-r*r,r/q]));}return h;
 }
 export function sourceResponse(s,f){let h=mul(filterResponse(f,s.hp,s.hpOrder,'hp'),filterResponse(f,s.lp,s.lpOrder,'lp'));const phase=-2*Math.PI*f*s.delay/1000;return mul(h,[10**(s.gain/20)*Math.cos(phase),10**(s.gain/20)*Math.sin(phase)]);}
-export function simulate(p,progress=()=>{}){
- validate(p);const c=343,h=Math.max(p.width,p.depth)/p.detail,nx=Math.ceil(p.width/h),ny=Math.ceil(p.depth/h),dx=p.width/nx,dy=p.depth/ny,n=nx*ny;
+export function simulate(p,progress=()=>{},detail=p.detail){
+ validate(p);if(![32,64,96,144].includes(detail))throw Error('Invalid simulation resolution.');const c=343,h=Math.max(p.width,p.depth)/detail,nx=Math.ceil(p.width/h),ny=Math.ceil(p.depth/h),dx=p.width/nx,dy=p.depth/ny,n=nx*ny;
  const dt=.92/(c*Math.sqrt(1/dx**2+1/dy**2)),omega=2*Math.PI*p.frequency,alpha=omega/(2*p.q),loss=alpha*dt,ax=(c*dt/dx)**2,ay=(c*dt/dy)**2;
  const solid=new Uint8Array(n);for(let y=0;y<ny;y++)for(let x=0;x<nx;x++){if(p.obstacles.some(o=>(x+.5)*dx>=o.x&&(x+.5)*dx<=o.x+o.w&&(y+.5)*dy>=o.y&&(y+.5)*dy<=o.y+o.h))solid[y*nx+x]=1;}
  const active=p.sources.filter(s=>s.enabled).map(s=>{const ix=Math.min(nx-1,Math.floor(s.x/dx)),iy=Math.min(ny-1,Math.floor(s.y/dy)),i=iy*nx+ix;if(solid[i])throw Error('An enabled source is inside an obstacle. Move it into free space.');return {i,h:sourceResponse(s,p.frequency)};});
